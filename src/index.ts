@@ -92,10 +92,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error("Unknown prompt");
   }
 
-  const { latitude, longitude } = request.params.arguments as { latitude: number, longitude: number };
+  const { latitude, longitude } = request.params.arguments as { latitude: number | string, longitude: number | string };
+  const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+  const lng = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: "Invalid latitude or longitude values provided",
+        },
+      ],
+    };
+  }
 
   // Get grid point data
-  const pointsUrl = `${NWS_API_BASE}/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`;
+  const pointsUrl = `${NWS_API_BASE}/points/${lat.toFixed(4)},${lng.toFixed(4)}`;
   const pointsData = await makeNWSRequest<PointsResponse>(pointsUrl);
 
   if (!pointsData) {
@@ -103,7 +116,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: "text",
-          text: `Failed to retrieve grid point data for coordinates: ${latitude}, ${longitude}. This location may not be supported by the NWS API (only US locations are supported).`,
+          text: `Failed to retrieve grid point data for coordinates: ${lat}, ${lng}. This location may not be supported by the NWS API (only US locations are supported).`,
         },
       ],
     };
@@ -157,7 +170,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     ].join("\n"),
   );
 
-  const forecastText = `Forecast for ${latitude}, ${longitude}:\n\n${formattedForecast.join("\n")}`;
+  const forecastText = `Forecast for ${lat}, ${lng}:\n\n${formattedForecast.join("\n")}`;
 
   return {
     content: [
